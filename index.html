@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>Zeichenzähler (ohne Enter) mit linearem Kapitelziel</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root {
+      --ok: #0a7d2e;
+      --warn: #c77700;
+      --bad: #b00020;
+      --fg: #111;
+      --muted: #666;
+      --border: #ddd;
+      --bg: #fff;
+      --accent: #0a84ff;
+      --tooltip-bg: #222;
+    }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 20px; line-height: 1.45; color: var(--fg); background: var(--bg); }
+    h1 { font-size: 1.3rem; margin: 0 0 16px; }
+    label { font-weight: 600; display: block; margin: 10px 0 6px; }
+    input[type="number"], input[type="text"], textarea, select {
+      width: 100%; box-sizing: border-box; font: inherit; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+    }
+    textarea { min-height: 60vh; resize: vertical; }
+    .grid { display: grid; gap: 14px; grid-template-columns: 1fr; margin-bottom: 10px; }
+    .card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--bg); }
+    .flex { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .row { display: grid; gap: 10px; }
+    .btn { padding: 10px 14px; cursor: pointer; border: 1px solid #333; border-radius: 8px; background: #111; color: #fff; }
+    .btn.secondary { background: #fff; color: #111; border: 1px solid #999; }
+    .meta { color: var(--muted); font-size: 0.95em; }
+
+    /* Layout: links Einstellungen, rechts Editor (Desktop) */
+    .layout { display: grid; gap: 20px; }
+    @media (min-width: 980px) {
+      .layout {
+        grid-template-columns: 1fr 2fr;
+        align-items: start;
+      }
+    }
+
+    /* HUD (immer sichtbar) */
+    .hud {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 9999;
+      background: var(--bg);
+      color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 6px 24px rgba(0,0,0,.12);
+      min-width: 300px;
+      max-width: 420px;
+      padding: 12px;
+    }
+    .hud h2 { font-size: 0.95rem; margin: 0 0 8px; }
+    .hud .rows { display: grid; gap: 6px; }
+    .hud .line { display: flex; justify-content: space-between; gap: 8px; font-size: .95em; }
+    .hud .label { color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    .hud .val { font-weight: 700; }
+    .hud .mini {
+      width: 100%; height: 8px; background: #eee; border: 1px solid #ddd;
+      border-radius: 999px; overflow: hidden; position: relative;
+    }
+    .hud .mini .b { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), #66b6ff); transition: width .15s ease; }
+    .hud .mini .b.over { background: linear-gradient(90deg, #ff6b6b, #ff3b30); }
+    .hud .mini .band {
+      position: absolute; top: -3px; height: 14px; border-radius: 3px; opacity: .25;
+      background: linear-gradient(90deg, #00c853, #ffd600);
+    }
+    .hud .delta-ok { color: var(--ok); font-weight: 700; }
+    .hud .delta-warn { color: var(--warn); font-weight: 700; }
+    .hud .delta-bad { color: var(--bad); font-weight: 700; }
+
+    /* Tooltip-Icon und Tooltip */
+    .tip {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      font-size: 12px; line-height: 1;
+      color: var(--accent); border: 1px solid var(--accent);
+      cursor: help; user-select: none;
+      z-index: 1;
+    }
+    .tip::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: 130%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--tooltip-bg);
+      color: #fff;
+      padding: 6px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+      font-size: 0.85em;
+      box-shadow: 0 6px 18px rgba(0,0,0,.2);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .12s ease;
+    }
+    .tip::before {
+      content: "";
+      position: absolute;
+      bottom: 118%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: var(--tooltip-bg);
+      opacity: 0;
+      transition: opacity .12s ease;
+    }
+    .tip:hover::after,
+    .tip:hover::before,
+    .tip:focus-visible::after,
+    .tip:focus-visible::before {
+      opacity: 1;
+    }
+
+    /* Kleinere Helfer */
+    .divider { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <h1>Zeichenzähler (ohne Enter) mit linearem Kapitelziel</h1>
+
+  <div class="layout">
+    <!-- Linke Spalte: Einstellungen -->
+    <div class="left">
+      <div class="grid">
+        <div class="card">
+          <div class="row">
+            <label for="chapters">Kapitelanzahl (N)</label>
+            <input id="chapters" type="number" min="1" step="1" value="30" />
+
+            <label for="currentChapter">Aktuelles Kapitel (k)</label>
+            <div class="flex">
+              <input id="currentChapter" type="number" min="1" step="1" value="1" style="max-width:140px" />
+              <input id="currentChapterRange" type="range" min="1" max="30" value="1" style="flex:1" />
+            </div>
+
+            <label for="minTotal">Gesamt-Minimum Zeichen (ohne Enter, gesamtes Buch)</label>
+            <input id="minTotal" type="number" min="0" step="1" value="1100" />
+
+            <label for="maxTotal">Gesamt-Maximum Zeichen (ohne Enter, gesamtes Buch)</label>
+            <input id="maxTotal" type="number" min="0" step="1" value="1500" />
+
+            <div class="meta">
+              Linear: Bis Kapitel k sind k/N des Gesamt-Min/Max erlaubt.
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <label for="autosaveToggle">Autosave</label>
+            <div class="flex">
+              <select id="autosaveToggle">
+                <option value="on" selected>Ein</option>
+                <option value="off">Aus</option>
+              </select>
+              <label for="interval" style="margin:0 0 0 8px">Intervall (Sek.)</label>
+              <input id="interval" type="number" min="2" step="1" value="5" style="max-width:120px" />
+            </div>
+            <div class="flex" style="margin-top:8px">
+              <button id="save" class="btn">Jetzt speichern</button>
+              <button id="export" class="btn secondary">Export .txt</button>
+              <input id="importFile" type="file" accept=".txt,.md,.rtf,.csv,.json" style="display:none" />
+              <button id="importBtn" class="btn secondary">Import .txt/.md</button>
+              <button id="clear" class="btn secondary">Alles löschen</button>
+            </div>
+            <div id="saveInfo" class="meta"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rechte Spalte: Editor -->
+    <div class="right">
+      <label for="text">Buch-Text</label>
+      <textarea id="text" placeholder="Füge hier deinen Text ein oder schreibe direkt los..."></textarea>
+    </div>
+  </div>
+
+  <!-- Sticky HUD mit ALLEN Infos -->
+  <div id="hud" class="hud" aria-live="polite">
+    <h2>Live-Zähler — Zeichen ohne Enter</h2>
+    <div class="rows" id="hudContent"></div>
+  </div>
+
+  <script>
+    // ---------- Helpers ----------
+    const LS_KEY = "buchKapitelCounter_v4";
+    const DEFAULTS = { minTotal: 1100, maxTotal: 1500 };
+    const el = id => document.getElementById(id);
+
+    function countWithoutNewlines(str) {
+      // \n und \r werden NICHT gezählt; Leerzeichen/Tabulatoren ja.
+      return (str || "").replace(/\r?\n/g, "").length;
+    }
+    function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+    function formatDT(d = new Date()) {
+      return d.toLocaleString(undefined, {
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit"
+      });
+    }
+
+    // ---------- Elements ----------
+    const textEl = el("text");
+    const chaptersEl = el("chapters");
+    const currentEl = el("currentChapter");
+    const currentRangeEl = el("currentChapterRange");
+    const minTotalEl = el("minTotal");
+    const maxTotalEl = el("maxTotal");
+
+    const autosaveToggleEl = el("autosaveToggle");
+    const intervalEl = el("interval");
+    const saveInfoEl = el("saveInfo");
+    const saveBtn = el("save");
+    const exportBtn = el("export");
+    const importBtn = el("importBtn");
+    const importFileEl = el("importFile");
+    const clearBtn = el("clear");
+
+    const hudContentEl = el("hudContent");
+
+    // ---------- State ----------
+    const state = {
+      minTotal: DEFAULTS.minTotal,
+      maxTotal: DEFAULTS.maxTotal,
+      lastSavedTs: null
+    };
+
+    let autosaveTimer = null;
+
+    // ---------- Logic ----------
+    function getEffectiveTotals() {
+      // Für Berechnungen geordnet verwenden, Eingabefelder bleiben unberührt
+      const effMin = Math.min(state.minTotal, state.maxTotal);
+      const effMax = Math.max(state.minTotal, state.maxTotal);
+      return { effMin, effMax };
+    }
+
+    function updateUI() {
+      const chapters = clamp(parseInt(chaptersEl.value || "1", 10), 1, 1e6);
+      chaptersEl.value = chapters;
+      currentRangeEl.max = String(chapters);
+
+      let current = parseInt(currentEl.value || "1", 10);
+      current = clamp(current, 1, chapters);
+      currentEl.value = current;
+      currentRangeEl.value = current;
+
+      const text = textEl.value || "";
+      const count = countWithoutNewlines(text);
+
+      const { effMin, effMax } = getEffectiveTotals();
+
+      // Linearer Band bis Kapitel k
+      const minAllowed = Math.floor((current / chapters) * effMin);
+      const maxAllowed = Math.floor((current / chapters) * effMax);
+
+      // Delta
+      let deltaTxt = "";
+      let deltaClass = "delta-ok";
+      if (count > maxAllowed) {
+        const over = count - maxAllowed;
+        deltaTxt = `Über Maximum: +${over.toLocaleString("de-DE")} Zeichen`;
+        deltaClass = "delta-bad";
+      } else if (count < minAllowed) {
+        const need = minAllowed - count;
+        deltaTxt = `Unter Minimum: noch ${need.toLocaleString("de-DE")} Zeichen bis Minimum`;
+        deltaClass = "delta-warn";
+      } else {
+        const remain = maxAllowed - count;
+        deltaTxt = `Verbleibend bis Maximum: ${remain.toLocaleString("de-DE")} Zeichen`;
+        deltaClass = "delta-ok";
+      }
+
+      // Per-Kapitel-Soll (Info)
+      const perMin = chapters > 0 ? Math.floor(effMin / chapters) : 0;
+      const perMax = chapters > 0 ? Math.floor(effMax / chapters) : 0;
+
+      // Rest bis Gesamt
+      const remainToTotalMin = Math.max(0, effMin - count);
+      const remainToTotalMax = Math.max(0, effMax - count);
+
+      // Balken im HUD
+      const pctNow = maxAllowed > 0 ? Math.min(count / maxAllowed, 1) * 100 : 0;
+      const bandStartPct = maxAllowed > 0 ? Math.max(0, Math.min(100, (minAllowed / maxAllowed) * 100)) : 0;
+      const bandWidthPct = maxAllowed > 0 ? Math.max(0, 100 - bandStartPct) : 0;
+
+      // Tooltips
+      const tipCount = "Leerzeichen & Tabulatoren zählen. Enter/Zeilenumbrüche zählen nicht.";
+      const tipKap = `Kapitel: ${current}/${chapters}`;
+      const tipSollKap = `Linear: Bis Kapitel ${current} sind k/N vom Gesamtsoll erlaubt.`;
+      const tipMini = "Balken = Fortschritt gegen Soll-Max. Grün-Gelb-Band = 'OK'-Bereich ab Soll-Min.";
+      const tipPerKap = `Pro Kapitel (gerundet): min ≈ ${perMin.toLocaleString("de-DE")}, max ≈ ${perMax.toLocaleString("de-DE")}`;
+      const tipTotal = "Gesamtziele (intern geordnet, falls Min > Max eingegeben wurde).";
+      const tipRestMin = "Noch fehlende Zeichen bis zum Gesamt-Minimum.";
+      const tipRestMax = "Verbleibende Zeichen bis zum Gesamt-Maximum.";
+      const tipAutosave = `Autosave: ${autosaveToggleEl.value === "on" ? "an" : "aus"} • Intervall: ${Math.max(2, parseInt(intervalEl.value||"5",10))} s${state.lastSavedTs ? ` • Letzt. Save: ${formatDT(new Date(state.lastSavedTs))}` : ""}`;
+
+      // HUD Render
+      hudContentEl.innerHTML = `
+        <div class="line">
+          <span class="label">Ist (ohne Enter) <span class="tip" tabindex="0" data-tip="${tipCount}">i</span></span>
+          <span class="val">${count.toLocaleString("de-DE")}</span>
+        </div>
+
+        <div class="line">
+          <span class="label">Kapitel <span class="tip" tabindex="0" data-tip="${tipKap}">i</span></span>
+          <span class="val">${current} / ${chapters}</span>
+        </div>
+
+        <div class="line">
+          <span class="label">Soll bis Kapitel <span class="tip" tabindex="0" data-tip="${tipSollKap}">i</span></span>
+          <span class="val">${minAllowed.toLocaleString("de-DE")} – ${maxAllowed.toLocaleString("de-DE")}</span>
+        </div>
+
+        <div class="mini" title="">
+          <div class="band" style="left:${bandStartPct}%; width:${bandWidthPct}%"></div>
+          <div class="b ${count > maxAllowed ? "over" : ""}" style="width:${pctNow}%"></div>
+        </div>
+
+        <div class="line">
+          <span class="label">Delta</span>
+          <span class="${deltaClass}">${deltaTxt}</span>
+        </div>
+
+        <hr class="divider" />
+
+        <div class="line">
+          <span class="label">Gesamt-Soll <span class="tip" tabindex="0" data-tip="${tipTotal}">i</span></span>
+          <span class="val">${effMin.toLocaleString("de-DE")} – ${effMax.toLocaleString("de-DE")}</span>
+        </div>
+
+        <div class="line">
+          <span class="label">Pro Kapitel <span class="tip" tabindex="0" data-tip="${tipPerKap}">i</span></span>
+          <span class="val">${perMin.toLocaleString("de-DE")} / ${perMax.toLocaleString("de-DE")}</span>
+        </div>
+
+        <div class="line">
+          <span class="label">Rest bis Gesamt-Min <span class="tip" tabindex="0" data-tip="${tipRestMin}">i</span></span>
+          <span class="val">${remainToTotalMin.toLocaleString("de-DE")}</span>
+        </div>
+
+        <div class="line">
+          <span class="label">Rest bis Gesamt-Max <span class="tip" tabindex="0" data-tip="${tipRestMax}">i</span></span>
+          <span class="val">${remainToTotalMax.toLocaleString("de-DE")}</span>
+        </div>
+
+        <div class="line">
+          <span class="label">Autosave <span class="tip" tabindex="0" data-tip="${tipAutosave}">i</span></span>
+          <span class="val">${autosaveToggleEl.value === "on" ? "an" : "aus"}</span>
+        </div>
+
+        ${state.minTotal > state.maxTotal ? `
+          <div class="line">
+            <span class="label" style="color:var(--warn)">Hinweis</span>
+            <span class="val" style="color:var(--warn)">Min > Max (intern geordnet)</span>
+          </div>
+        ` : ``}
+      `;
+    }
+
+    function saveNow(note = "") {
+      const data = {
+        text: textEl.value || "",
+        chapters: parseInt(chaptersEl.value || "1", 10),
+        current: parseInt(currentEl.value || "1", 10),
+        minTotal: state.minTotal,
+        maxTotal: state.maxTotal,
+        autosave: autosaveToggleEl.value,
+        intervalSec: Math.max(2, parseInt(intervalEl.value || "5", 10)),
+        ts: Date.now()
+      };
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify(data));
+        state.lastSavedTs = data.ts;
+        saveInfoEl.textContent = `Gespeichert: ${formatDT(new Date(data.ts))}${note ? " • " + note : ""}`;
+      } catch (e) {
+        saveInfoEl.textContent = "Konnte nicht lokal speichern.";
+      }
+      // HUD aktualisieren, damit Tooltip den Zeitstempel bekommt
+      updateUI();
+    }
+
+    function scheduleAutosave() {
+      if (autosaveTimer) {
+        clearInterval(autosaveTimer);
+        autosaveTimer = null;
+      }
+      const enabled = autosaveToggleEl.value === "on";
+      const sec = Math.max(2, parseInt(intervalEl.value || "5", 10));
+      if (enabled) {
+        autosaveTimer = setInterval(() => saveNow("Autosave"), sec * 1000);
+      }
+    }
+
+    function loadFromStorage() {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) {
+        try {
+          const d = JSON.parse(raw);
+          if (Number.isFinite(d.chapters)) chaptersEl.value = d.chapters;
+          if (Number.isFinite(d.current)) currentEl.value = d.current;
+          if (Number.isFinite(d.minTotal)) { state.minTotal = Math.max(0, d.minTotal); minTotalEl.value = state.minTotal; }
+          else { state.minTotal = DEFAULTS.minTotal; minTotalEl.value = DEFAULTS.minTotal; }
+          if (Number.isFinite(d.maxTotal)) { state.maxTotal = Math.max(0, d.maxTotal); maxTotalEl.value = state.maxTotal; }
+          else { state.maxTotal = DEFAULTS.maxTotal; maxTotalEl.value = DEFAULTS.maxTotal; }
+          if (typeof d.text === "string") textEl.value = d.text;
+          if (d.autosave === "on" || d.autosave === "off") autosaveToggleEl.value = d.autosave;
+          if (Number.isFinite(d.intervalSec)) intervalEl.value = Math.max(2, d.intervalSec);
+          if (Number.isFinite(d.ts)) { state.lastSavedTs = d.ts; saveInfoEl.textContent = `Zuletzt gespeichert: ${formatDT(new Date(d.ts))}`; }
+        } catch {
+          state.minTotal = DEFAULTS.minTotal; minTotalEl.value = DEFAULTS.minTotal;
+          state.maxTotal = DEFAULTS.maxTotal; maxTotalEl.value = DEFAULTS.maxTotal;
+        }
+      } else {
+        // Erststart
+        state.minTotal = DEFAULTS.minTotal; minTotalEl.value = DEFAULTS.minTotal;
+        state.maxTotal = DEFAULTS.maxTotal; maxTotalEl.value = DEFAULTS.maxTotal;
+      }
+      updateUI();
+      scheduleAutosave();
+    }
+
+    function exportTxt() {
+      const content = textEl.value || "";
+      const count = countWithoutNewlines(content);
+      const filename = `buch_${count}_zeichen_${new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")}.txt`;
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+    }
+
+    function clearAll() {
+      if (!confirm("Wirklich alles löschen? (Text & Einstellungen)")) return;
+      textEl.value = "";
+      chaptersEl.value = 30;
+      currentEl.value = 1;
+      currentRangeEl.value = 1;
+      state.minTotal = DEFAULTS.minTotal;
+      state.maxTotal = DEFAULTS.maxTotal;
+      minTotalEl.value = DEFAULTS.minTotal;
+      maxTotalEl.value = DEFAULTS.maxTotal;
+      autosaveToggleEl.value = "on";
+      intervalEl.value = 5;
+      state.lastSavedTs = null;
+      localStorage.removeItem(LS_KEY);
+      saveInfoEl.textContent = "";
+      updateUI();
+      scheduleAutosave();
+    }
+
+    // ---------- Events ----------
+    textEl.addEventListener("input", () => { updateUI(); });
+
+    chaptersEl.addEventListener("input", () => { updateUI(); saveNow(); });
+
+    currentEl.addEventListener("input", () => { updateUI(); });
+    currentRangeEl.addEventListener("input", () => {
+      currentEl.value = currentRangeEl.value;
+      updateUI();
+    });
+
+    // Min/Max stabil ohne gegenseitiges "Buggen"
+    minTotalEl.addEventListener("input", () => {
+      const v = parseInt(minTotalEl.value, 10);
+      if (Number.isFinite(v)) state.minTotal = Math.max(0, v);
+      updateUI(); saveNow();
+    });
+    maxTotalEl.addEventListener("input", () => {
+      const v = parseInt(maxTotalEl.value, 10);
+      if (Number.isFinite(v)) state.maxTotal = Math.max(0, v);
+      updateUI(); saveNow();
+    });
+    minTotalEl.addEventListener("blur", () => {
+      const v = parseInt(minTotalEl.value, 10);
+      if (!Number.isFinite(v)) minTotalEl.value = state.minTotal;
+    });
+    maxTotalEl.addEventListener("blur", () => {
+      const v = parseInt(maxTotalEl.value, 10);
+      if (!Number.isFinite(v)) maxTotalEl.value = state.maxTotal;
+    });
+
+    autosaveToggleEl.addEventListener("change", () => { scheduleAutosave(); saveNow(); });
+    intervalEl.addEventListener("input", () => { scheduleAutosave(); saveNow(); });
+
+    saveBtn.addEventListener("click", () => saveNow());
+    exportBtn.addEventListener("click", exportTxt);
+    importBtn.addEventListener("click", () => importFileEl.click());
+    importFileEl.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      textEl.value = text;
+      updateUI();
+      saveNow("Import");
+      importFileEl.value = "";
+    });
+    clearBtn.addEventListener("click", clearAll);
+    window.addEventListener("beforeunload", () => saveNow("Auto (beim Schließen)"));
+
+    // ---------- Init ----------
+    loadFromStorage();
+  </script>
+</body>
+</html>
