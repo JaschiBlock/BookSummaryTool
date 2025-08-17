@@ -609,11 +609,11 @@
     }
     toggleHudBtn.addEventListener("click", () => setHudVisible(!state.hudVisible));
     hudHideBtn.addEventListener("click", () => setHudVisible(false));
-    document.addEventListener("keydown", (e) => {
-      if (e.key.toLowerCase() === "h" && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault(); setHudVisible(!state.hudVisible);
-      }
-    });
+//    document.addEventListener("keydown", (e) => {
+//      if (e.key.toLowerCase() === "h" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+//        e.preventDefault(); setHudVisible(!state.hudVisible);
+//      }
+//   });
 
     function setCompact(v) {
       state.compact = !!v;
