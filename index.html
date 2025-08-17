@@ -54,12 +54,22 @@
       min-width: 300px;
       max-width: 420px;
       padding: 12px;
+      max-height: 80vh;
+      overflow-y: auto;
     }
-    .hud h2 { font-size: 0.95rem; margin: 0 0 8px; }
-    .hud .rows { display: grid; gap: 6px; }
+    .hud .rows { display: grid; gap: 8px; }
     .hud .line { display: flex; justify-content: space-between; gap: 8px; font-size: .95em; }
     .hud .label { color: var(--muted); display: flex; align-items: center; gap: 6px; }
     .hud .val { font-weight: 700; }
+
+    .hud .range {
+      display: grid;
+      gap: 6px;
+    }
+    .hud .range input[type="range"] {
+      width: 100%;
+    }
+
     .hud .mini {
       width: 100%; height: 8px; background: #eee; border: 1px solid #ddd;
       border-radius: 999px; overflow: hidden; position: relative;
@@ -74,7 +84,7 @@
     .hud .delta-warn { color: var(--warn); font-weight: 700; }
     .hud .delta-bad { color: var(--bad); font-weight: 700; }
 
-    /* Tooltip-Icon und Tooltip */
+    /* Tooltip-Icon und Tooltip (reines CSS, auch auf Touch via Fokus) */
     .tip {
       position: relative;
       display: inline-flex;
@@ -122,8 +132,30 @@
       opacity: 1;
     }
 
-    /* Kleinere Helfer */
-    .divider { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+    /* HUD Toggle Button (mobile) */
+    #toggleHud {
+      position: fixed;
+      left: 12px;
+      bottom: 12px;
+      z-index: 9999;
+      display: none; /* nur mobil einblenden */
+    }
+
+    /* Mobile Optimierungen */
+    @media (max-width: 680px) {
+      .hud {
+        right: 12px;
+        bottom: calc(96px + env(safe-area-inset-bottom, 0px)); /* höher, über UI/Keyboard */
+        min-width: 85vw;
+        max-width: 92vw;
+        font-size: 0.92rem;
+        padding: 10px;
+        max-height: 55vh;
+      }
+      #toggleHud {
+        display: inline-block;
+      }
+    }
   </style>
 </head>
 <body>
@@ -185,15 +217,17 @@
     </div>
   </div>
 
-  <!-- Sticky HUD mit ALLEN Infos -->
+  <!-- Sticky HUD (reduziert, ohne Header) -->
   <div id="hud" class="hud" aria-live="polite">
-    <h2>Live-Zähler — Zeichen ohne Enter</h2>
     <div class="rows" id="hudContent"></div>
   </div>
 
+  <!-- Mobile HUD Toggle -->
+  <button id="toggleHud" class="btn secondary">HUD ausblenden</button>
+
   <script>
     // ---------- Helpers ----------
-    const LS_KEY = "buchKapitelCounter_v4";
+    const LS_KEY = "buchKapitelCounter_v5";
     const DEFAULTS = { minTotal: 1100, maxTotal: 1500 };
     const el = id => document.getElementById(id);
 
@@ -226,13 +260,16 @@
     const importFileEl = el("importFile");
     const clearBtn = el("clear");
 
+    const hudEl = el("hud");
     const hudContentEl = el("hudContent");
+    const toggleHudBtn = el("toggleHud");
 
     // ---------- State ----------
     const state = {
       minTotal: DEFAULTS.minTotal,
       maxTotal: DEFAULTS.maxTotal,
-      lastSavedTs: null
+      lastSavedTs: null,
+      hudVisible: true
     };
 
     let autosaveTimer = null;
@@ -281,14 +318,6 @@
         deltaClass = "delta-ok";
       }
 
-      // Per-Kapitel-Soll (Info)
-      const perMin = chapters > 0 ? Math.floor(effMin / chapters) : 0;
-      const perMax = chapters > 0 ? Math.floor(effMax / chapters) : 0;
-
-      // Rest bis Gesamt
-      const remainToTotalMin = Math.max(0, effMin - count);
-      const remainToTotalMax = Math.max(0, effMax - count);
-
       // Balken im HUD
       const pctNow = maxAllowed > 0 ? Math.min(count / maxAllowed, 1) * 100 : 0;
       const bandStartPct = maxAllowed > 0 ? Math.max(0, Math.min(100, (minAllowed / maxAllowed) * 100)) : 0;
@@ -296,25 +325,19 @@
 
       // Tooltips
       const tipCount = "Leerzeichen & Tabulatoren zählen. Enter/Zeilenumbrüche zählen nicht.";
-      const tipKap = `Kapitel: ${current}/${chapters}`;
-      const tipSollKap = `Linear: Bis Kapitel ${current} sind k/N vom Gesamtsoll erlaubt.`;
+      const tipSollKap = `Linear: Bis Kapitel sind k/N vom Gesamtsoll erlaubt.`;
       const tipMini = "Balken = Fortschritt gegen Soll-Max. Grün-Gelb-Band = 'OK'-Bereich ab Soll-Min.";
-      const tipPerKap = `Pro Kapitel (gerundet): min ≈ ${perMin.toLocaleString("de-DE")}, max ≈ ${perMax.toLocaleString("de-DE")}`;
-      const tipTotal = "Gesamtziele (intern geordnet, falls Min > Max eingegeben wurde).";
-      const tipRestMin = "Noch fehlende Zeichen bis zum Gesamt-Minimum.";
-      const tipRestMax = "Verbleibende Zeichen bis zum Gesamt-Maximum.";
-      const tipAutosave = `Autosave: ${autosaveToggleEl.value === "on" ? "an" : "aus"} • Intervall: ${Math.max(2, parseInt(intervalEl.value||"5",10))} s${state.lastSavedTs ? ` • Letzt. Save: ${formatDT(new Date(state.lastSavedTs))}` : ""}`;
 
-      // HUD Render
+      // HUD Render (nur: Ist, Kapitel-Schieber, Soll bis Kapitel, Minibalken, Delta)
       hudContentEl.innerHTML = `
         <div class="line">
           <span class="label">Ist (ohne Enter) <span class="tip" tabindex="0" data-tip="${tipCount}">i</span></span>
           <span class="val">${count.toLocaleString("de-DE")}</span>
         </div>
 
-        <div class="line">
-          <span class="label">Kapitel <span class="tip" tabindex="0" data-tip="${tipKap}">i</span></span>
-          <span class="val">${current} / ${chapters}</span>
+        <div class="range">
+          <label class="label" for="hudChapterRange">Kapitel wählen</label>
+          <input id="hudChapterRange" type="range" min="1" max="${chapters}" value="${current}">
         </div>
 
         <div class="line">
@@ -331,41 +354,18 @@
           <span class="label">Delta</span>
           <span class="${deltaClass}">${deltaTxt}</span>
         </div>
-
-        <hr class="divider" />
-
-        <div class="line">
-          <span class="label">Gesamt-Soll <span class="tip" tabindex="0" data-tip="${tipTotal}">i</span></span>
-          <span class="val">${effMin.toLocaleString("de-DE")} – ${effMax.toLocaleString("de-DE")}</span>
-        </div>
-
-        <div class="line">
-          <span class="label">Pro Kapitel <span class="tip" tabindex="0" data-tip="${tipPerKap}">i</span></span>
-          <span class="val">${perMin.toLocaleString("de-DE")} / ${perMax.toLocaleString("de-DE")}</span>
-        </div>
-
-        <div class="line">
-          <span class="label">Rest bis Gesamt-Min <span class="tip" tabindex="0" data-tip="${tipRestMin}">i</span></span>
-          <span class="val">${remainToTotalMin.toLocaleString("de-DE")}</span>
-        </div>
-
-        <div class="line">
-          <span class="label">Rest bis Gesamt-Max <span class="tip" tabindex="0" data-tip="${tipRestMax}">i</span></span>
-          <span class="val">${remainToTotalMax.toLocaleString("de-DE")}</span>
-        </div>
-
-        <div class="line">
-          <span class="label">Autosave <span class="tip" tabindex="0" data-tip="${tipAutosave}">i</span></span>
-          <span class="val">${autosaveToggleEl.value === "on" ? "an" : "aus"}</span>
-        </div>
-
-        ${state.minTotal > state.maxTotal ? `
-          <div class="line">
-            <span class="label" style="color:var(--warn)">Hinweis</span>
-            <span class="val" style="color:var(--warn)">Min > Max (intern geordnet)</span>
-          </div>
-        ` : ``}
       `;
+
+      // HUD Kapitel-Schieber mit Haupt-UI synchronisieren
+      const hudRange = document.getElementById("hudChapterRange");
+      if (hudRange) {
+        hudRange.addEventListener("input", () => {
+          currentEl.value = hudRange.value;
+          currentRangeEl.value = hudRange.value;
+          updateUI();
+          saveNow();
+        }, { once: true }); // neu rendern -> neuer Listener, daher once und bei jedem Render neu gesetzt
+      }
     }
 
     function saveNow(note = "") {
@@ -386,7 +386,7 @@
       } catch (e) {
         saveInfoEl.textContent = "Konnte nicht lokal speichern.";
       }
-      // HUD aktualisieren, damit Tooltip den Zeitstempel bekommt
+      // HUD aktualisieren
       updateUI();
     }
 
@@ -510,6 +510,21 @@
     });
     clearBtn.addEventListener("click", clearAll);
     window.addEventListener("beforeunload", () => saveNow("Auto (beim Schließen)"));
+
+    // Mobile: HUD Toggle
+    toggleHudBtn.addEventListener("click", () => {
+      state.hudVisible = !state.hudVisible;
+      hudEl.style.display = state.hudVisible ? "block" : "none";
+      toggleHudBtn.textContent = state.hudVisible ? "HUD ausblenden" : "HUD einblenden";
+    });
+
+    // Optional: HUD ausblenden, wenn Textarea nahe Unterkante gescrollt ist (mobile Schreibfokus)
+    textEl.addEventListener("scroll", () => {
+      const nearBottom = textEl.scrollTop + textEl.clientHeight >= textEl.scrollHeight - 50;
+      // Sanft ausblenden statt hart verstecken
+      hudEl.style.opacity = nearBottom ? "0" : "1";
+      hudEl.style.pointerEvents = nearBottom ? "none" : "auto";
+    });
 
     // ---------- Init ----------
     loadFromStorage();
