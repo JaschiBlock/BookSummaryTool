@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <title>Zeichenzähler (ohne Enter) mit linearem Kapitelziel</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <style>
     :root {
       --ok: #0a7d2e;
@@ -15,6 +15,9 @@
       --bg: #fff;
       --accent: #0a84ff;
       --tooltip-bg: #222;
+      --shadow: 0 6px 24px rgba(0,0,0,.12);
+      --gap: 16px;
+      --hud-pad: 12px;
     }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 20px; line-height: 1.45; color: var(--fg); background: var(--bg); }
     h1 { font-size: 1.3rem; margin: 0 0 16px; }
@@ -29,46 +32,39 @@
     .row { display: grid; gap: 10px; }
     .btn { padding: 10px 14px; cursor: pointer; border: 1px solid #333; border-radius: 8px; background: #111; color: #fff; }
     .btn.secondary { background: #fff; color: #111; border: 1px solid #999; }
+    .btn.ghost { background: transparent; color: var(--muted); border: 1px dashed #bbb; }
     .meta { color: var(--muted); font-size: 0.95em; }
 
     /* Layout: links Einstellungen, rechts Editor (Desktop) */
     .layout { display: grid; gap: 20px; }
     @media (min-width: 980px) {
-      .layout {
-        grid-template-columns: 1fr 2fr;
-        align-items: start;
-      }
+      .layout { grid-template-columns: 1fr 2fr; align-items: start; }
     }
 
-    /* HUD (immer sichtbar) */
+    /* HUD (floating) */
     .hud {
       position: fixed;
       right: 16px;
-      bottom: 16px;
       z-index: 9999;
       background: var(--bg);
       color: var(--fg);
       border: 1px solid var(--border);
       border-radius: 12px;
-      box-shadow: 0 6px 24px rgba(0,0,0,.12);
+      box-shadow: var(--shadow);
       min-width: 300px;
       max-width: 420px;
-      padding: 12px;
+      padding: var(--hud-pad);
       max-height: 80vh;
       overflow-y: auto;
+      transition: opacity .15s ease, transform .15s ease;
     }
     .hud .rows { display: grid; gap: 8px; }
     .hud .line { display: flex; justify-content: space-between; gap: 8px; font-size: .95em; }
     .hud .label { color: var(--muted); display: flex; align-items: center; gap: 6px; }
     .hud .val { font-weight: 700; }
 
-    .hud .range {
-      display: grid;
-      gap: 6px;
-    }
-    .hud .range input[type="range"] {
-      width: 100%;
-    }
+    .hud .range { display: grid; gap: 6px; }
+    .hud .range input[type="range"] { width: 100%; }
 
     .hud .mini {
       width: 100%; height: 8px; background: #eee; border: 1px solid #ddd;
@@ -84,7 +80,14 @@
     .hud .delta-warn { color: var(--warn); font-weight: 700; }
     .hud .delta-bad { color: var(--bad); font-weight: 700; }
 
-    /* Tooltip-Icon und Tooltip (reines CSS, auch auf Touch via Fokus) */
+    /* HUD header (controls) */
+    .hud .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    .hud .head .title { font-weight: 700; color: var(--muted); font-size: .9em; }
+    .hud .head .tools { display: flex; gap: 6px; }
+    .hud .head .mini-btn { padding: 6px 8px; font-size: .85em; border-radius: 6px; border: 1px solid #bbb; background: #fff; color: #333; cursor: pointer; }
+    .hud .head .mini-btn.toggled { background: #111; color: #fff; border-color: #111; }
+
+    /* Tooltip-Icon und Tooltip (Hover, Focus & Touch via aria-expanded) */
     .tip {
       position: relative;
       display: inline-flex;
@@ -96,6 +99,7 @@
       color: var(--accent); border: 1px solid var(--accent);
       cursor: help; user-select: none;
       z-index: 1;
+      flex: 0 0 16px;
     }
     .tip::after {
       content: attr(data-tip);
@@ -128,33 +132,51 @@
     .tip:hover::after,
     .tip:hover::before,
     .tip:focus-visible::after,
-    .tip:focus-visible::before {
+    .tip:focus-visible::before,
+    .tip[aria-expanded="true"]::after,
+    .tip[aria-expanded="true"]::before {
       opacity: 1;
     }
 
-    /* HUD Toggle Button (mobile) */
+    /* Mobile HUD Toggle Button (mobile) */
     #toggleHud {
       position: fixed;
       left: 12px;
-      bottom: 12px;
+      bottom: calc(12px + env(safe-area-inset-bottom, 0px));
       z-index: 9999;
-      display: none; /* nur mobil einblenden */
+      display: none;
     }
+
+    /* HUD compact mode */
+    .hud.compact { padding: 10px; min-width: 260px; }
+    .hud.compact .range,
+    .hud.compact .line.soll { display: none; }
+    .hud.compact .head .title { display: none; }
+
+    /* Onboarding overlay */
+    #onboarding {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75); color: #fff;
+      z-index: 10000; display: none; padding: 24px;
+      overflow: auto;
+    }
+    #onboarding .box {
+      max-width: 720px; margin: 6vh auto; background: #111; color: #fff; border-radius: 12px; padding: 18px 18px 14px; box-shadow: var(--shadow);
+    }
+    #onboarding h2 { margin: 0 0 8px; font-size: 1.2rem; }
+    #onboarding ul { margin: 8px 0 12px 20px; }
+    #onboarding .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 
     /* Mobile Optimierungen */
     @media (max-width: 680px) {
       .hud {
         right: 12px;
-        bottom: calc(96px + env(safe-area-inset-bottom, 0px)); /* höher, über UI/Keyboard */
         min-width: 85vw;
         max-width: 92vw;
         font-size: 0.92rem;
         padding: 10px;
-        max-height: 55vh;
+        max-height: 60vh;
       }
-      #toggleHud {
-        display: inline-block;
-      }
+      #toggleHud { display: inline-block; }
     }
   </style>
 </head>
@@ -204,7 +226,23 @@
               <button id="importBtn" class="btn secondary">Import .txt/.md</button>
               <button id="clear" class="btn secondary">Alles löschen</button>
             </div>
+
+            <!-- NEU: LocalStorage sichern/laden -->
+            <div class="flex" style="margin-top:8px">
+              <button id="lsExport" class="btn secondary">LocalStorage sichern</button>
+              <button id="lsImportBtn" class="btn secondary">LocalStorage laden</button>
+              <input id="lsImportFile" type="file" accept="application/json" style="display:none" />
+            </div>
+
             <div id="saveInfo" class="meta"></div>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <!-- HUD / Anzeige-Optionen -->
+            <div class="flex">
+              <button id="toggleCompact" class="btn ghost">Kompaktmodus</button>
+              <button id="showOnboarding" class="btn ghost">Hilfe/Erklärung</button>
+            </div>
           </div>
         </div>
       </div>
@@ -217,17 +255,44 @@
     </div>
   </div>
 
-  <!-- Sticky HUD (reduziert, ohne Header) -->
+  <!-- Sticky HUD (mit Head) -->
   <div id="hud" class="hud" aria-live="polite">
+    <div class="head">
+      <div class="title">HUD</div>
+      <div class="tools">
+        <button id="hudCompactBtn" class="mini-btn" title="Kompaktmodus umschalten">Kompakt</button>
+        <button id="hudHideBtn" class="mini-btn" title="HUD ein-/ausblenden">Hide</button>
+        <button id="hudHelpBtn" class="mini-btn" title="Erklärung anzeigen">?</button>
+      </div>
+    </div>
     <div class="rows" id="hudContent"></div>
   </div>
 
   <!-- Mobile HUD Toggle -->
   <button id="toggleHud" class="btn secondary">HUD ausblenden</button>
 
+  <!-- Onboarding Overlay -->
+  <div id="onboarding" role="dialog" aria-modal="true" aria-labelledby="onbTitle">
+    <div class="box">
+      <h2 id="onbTitle">Kurze Einführung</h2>
+      <p>Dieses HUD hilft dir, die Zeichenanzahl pro Kapitel im Blick zu behalten.</p>
+      <ul>
+        <li><strong>Ist:</strong> Aktuelle Zeichen ohne Enter.</li>
+        <li><strong>Soll-Bereich:</strong> Min–Max bis zum gewählten Kapitel. Der Balken zeigt den Fortschritt, das grün-gelbe Band den OK-Bereich.</li>
+        <li><strong>Kompaktmodus:</strong> Zeigt nur Kernwerte, um Ablenkung zu minimieren.</li>
+        <li><strong>HUD-Position:</strong> Das HUD weicht automatisch aus, wenn es stört (oben/unten).</li>
+        <li><strong>Backup:</strong> Sichere/lade deinen LocalStorage, um in anderen Browsern weiterzuarbeiten.</li>
+      </ul>
+      <div class="actions">
+        <button id="closeOnboarding" class="btn">Los geht’s</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ---------- Helpers ----------
     const LS_KEY = "buchKapitelCounter_v5";
+    const LS_FLAG_ONBOARD = LS_KEY + "_onboarded";
     const DEFAULTS = { minTotal: 1100, maxTotal: 1500 };
     const el = id => document.getElementById(id);
 
@@ -241,6 +306,9 @@
         year: "numeric", month: "2-digit", day: "2-digit",
         hour: "2-digit", minute: "2-digit", second: "2-digit"
       });
+    }
+    function rectsOverlap(a, b, pad = 0) {
+      return !(a.right < b.left + pad || a.left > b.right - pad || a.bottom < b.top + pad || a.top > b.bottom - pad);
     }
 
     // ---------- Elements ----------
@@ -263,45 +331,47 @@
     const hudEl = el("hud");
     const hudContentEl = el("hudContent");
     const toggleHudBtn = el("toggleHud");
+    const hudCompactBtn = el("hudCompactBtn");
+    const hudHideBtn = el("hudHideBtn");
+    const hudHelpBtn = el("hudHelpBtn");
+
+    const toggleCompactBtn = el("toggleCompact");
+    const showOnboardingBtn = el("showOnboarding");
+
+    const lsExportBtn = el("lsExport");
+    const lsImportBtn = el("lsImportBtn");
+    const lsImportFile = el("lsImportFile");
+
+    const onboardingEl = el("onboarding");
+    const closeOnboardingBtn = el("closeOnboarding");
 
     // ---------- State ----------
     const state = {
       minTotal: DEFAULTS.minTotal,
       maxTotal: DEFAULTS.maxTotal,
       lastSavedTs: null,
-      hudVisible: true
+      hudVisible: true,
+      compact: false
     };
-
     let autosaveTimer = null;
 
     // ---------- Logic ----------
     function getEffectiveTotals() {
-      // Für Berechnungen geordnet verwenden, Eingabefelder bleiben unberührt
       const effMin = Math.min(state.minTotal, state.maxTotal);
       const effMax = Math.max(state.minTotal, state.maxTotal);
       return { effMin, effMax };
     }
 
-    function updateUI() {
+    function renderHUDContent() {
       const chapters = clamp(parseInt(chaptersEl.value || "1", 10), 1, 1e6);
-      chaptersEl.value = chapters;
-      currentRangeEl.max = String(chapters);
-
-      let current = parseInt(currentEl.value || "1", 10);
-      current = clamp(current, 1, chapters);
-      currentEl.value = current;
-      currentRangeEl.value = current;
-
+      const current = clamp(parseInt(currentEl.value || "1", 10), 1, chapters);
       const text = textEl.value || "";
       const count = countWithoutNewlines(text);
-
       const { effMin, effMax } = getEffectiveTotals();
 
-      // Linearer Band bis Kapitel k
       const minAllowed = Math.floor((current / chapters) * effMin);
       const maxAllowed = Math.floor((current / chapters) * effMax);
 
-      // Delta
       let deltaTxt = "";
       let deltaClass = "delta-ok";
       if (count > maxAllowed) {
@@ -318,45 +388,59 @@
         deltaClass = "delta-ok";
       }
 
-      // Balken im HUD
       const pctNow = maxAllowed > 0 ? Math.min(count / maxAllowed, 1) * 100 : 0;
       const bandStartPct = maxAllowed > 0 ? Math.max(0, Math.min(100, (minAllowed / maxAllowed) * 100)) : 0;
       const bandWidthPct = maxAllowed > 0 ? Math.max(0, 100 - bandStartPct) : 0;
 
-      // Tooltips
       const tipCount = "Leerzeichen & Tabulatoren zählen. Enter/Zeilenumbrüche zählen nicht.";
       const tipSollKap = `Linear: Bis Kapitel sind k/N vom Gesamtsoll erlaubt.`;
       const tipMini = "Balken = Fortschritt gegen Soll-Max. Grün-Gelb-Band = 'OK'-Bereich ab Soll-Min.";
 
-      // HUD Render (nur: Ist, Kapitel-Schieber, Soll bis Kapitel, Minibalken, Delta)
-      hudContentEl.innerHTML = `
-        <div class="line">
-          <span class="label">Ist (ohne Enter) <span class="tip" tabindex="0" data-tip="${tipCount}">i</span></span>
-          <span class="val">${count.toLocaleString("de-DE")}</span>
-        </div>
+      if (state.compact) {
+        hudContentEl.innerHTML = `
+          <div class="line">
+            <span class="label">Ist <span class="tip" tabindex="0" role="button" aria-expanded="false" data-tip="${tipCount}">i</span></span>
+            <span class="val">${count.toLocaleString("de-DE")}</span>
+          </div>
+          <div class="mini" title="">
+            <div class="band" style="left:${bandStartPct}%; width:${bandWidthPct}%"></div>
+            <div class="b ${count > maxAllowed ? "over" : ""}" style="width:${pctNow}%"></div>
+          </div>
+          <div class="line">
+            <span class="label">Delta</span>
+            <span class="${deltaClass}">${deltaTxt}</span>
+          </div>
+        `;
+      } else {
+        hudContentEl.innerHTML = `
+          <div class="line">
+            <span class="label">Ist (ohne Enter) <span class="tip" tabindex="0" role="button" aria-expanded="false" data-tip="${tipCount}">i</span></span>
+            <span class="val">${count.toLocaleString("de-DE")}</span>
+          </div>
 
-        <div class="range">
-          <label class="label" for="hudChapterRange">Kapitel wählen</label>
-          <input id="hudChapterRange" type="range" min="1" max="${chapters}" value="${current}">
-        </div>
+          <div class="range">
+            <label class="label" for="hudChapterRange">Kapitel wählen</label>
+            <input id="hudChapterRange" type="range" min="1" max="${chapters}" value="${current}">
+          </div>
 
-        <div class="line">
-          <span class="label">Soll bis Kapitel <span class="tip" tabindex="0" data-tip="${tipSollKap}">i</span></span>
-          <span class="val">${minAllowed.toLocaleString("de-DE")} – ${maxAllowed.toLocaleString("de-DE")}</span>
-        </div>
+          <div class="line soll">
+            <span class="label">Soll bis Kapitel <span class="tip" tabindex="0" role="button" aria-expanded="false" data-tip="${tipSollKap}">i</span></span>
+            <span class="val">${minAllowed.toLocaleString("de-DE")} – ${maxAllowed.toLocaleString("de-DE")}</span>
+          </div>
 
-        <div class="mini" title="">
-          <div class="band" style="left:${bandStartPct}%; width:${bandWidthPct}%"></div>
-          <div class="b ${count > maxAllowed ? "over" : ""}" style="width:${pctNow}%"></div>
-        </div>
+          <div class="mini" title="${tipMini}">
+            <div class="band" style="left:${bandStartPct}%; width:${bandWidthPct}%"></div>
+            <div class="b ${count > maxAllowed ? "over" : ""}" style="width:${pctNow}%"></div>
+          </div>
 
-        <div class="line">
-          <span class="label">Delta</span>
-          <span class="${deltaClass}">${deltaTxt}</span>
-        </div>
-      `;
+          <div class="line">
+            <span class="label">Delta</span>
+            <span class="${deltaClass}">${deltaTxt}</span>
+          </div>
+        `;
+      }
 
-      // HUD Kapitel-Schieber mit Haupt-UI synchronisieren
+      // Bind HUD internal interactions
       const hudRange = document.getElementById("hudChapterRange");
       if (hudRange) {
         hudRange.addEventListener("input", () => {
@@ -364,8 +448,31 @@
           currentRangeEl.value = hudRange.value;
           updateUI();
           saveNow();
-        }, { once: true }); // neu rendern -> neuer Listener, daher once und bei jedem Render neu gesetzt
+        }, { once: true });
       }
+      // Tooltip click-to-toggle (touch friendly)
+      hudEl.querySelectorAll(".tip").forEach(t => {
+        t.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const expanded = t.getAttribute("aria-expanded") === "true";
+          hudEl.querySelectorAll(".tip[aria-expanded='true']").forEach(o => o.setAttribute("aria-expanded","false"));
+          t.setAttribute("aria-expanded", expanded ? "false" : "true");
+        }, { once: true }); // re-bound on each render
+      });
+    }
+
+    function updateUI() {
+      const chapters = clamp(parseInt(chaptersEl.value || "1", 10), 1, 1e6);
+      chaptersEl.value = chapters;
+      currentRangeEl.max = String(chapters);
+
+      let current = parseInt(currentEl.value || "1", 10);
+      current = clamp(current, 1, chapters);
+      currentEl.value = current;
+      currentRangeEl.value = current;
+
+      renderHUDContent();
+      autoPlaceHUD();
     }
 
     function saveNow(note = "") {
@@ -377,6 +484,7 @@
         maxTotal: state.maxTotal,
         autosave: autosaveToggleEl.value,
         intervalSec: Math.max(2, parseInt(intervalEl.value || "5", 10)),
+        compact: !!state.compact,
         ts: Date.now()
       };
       try {
@@ -386,7 +494,6 @@
       } catch (e) {
         saveInfoEl.textContent = "Konnte nicht lokal speichern.";
       }
-      // HUD aktualisieren
       updateUI();
     }
 
@@ -416,16 +523,18 @@
           if (typeof d.text === "string") textEl.value = d.text;
           if (d.autosave === "on" || d.autosave === "off") autosaveToggleEl.value = d.autosave;
           if (Number.isFinite(d.intervalSec)) intervalEl.value = Math.max(2, d.intervalSec);
+          if (typeof d.compact === "boolean") state.compact = d.compact;
           if (Number.isFinite(d.ts)) { state.lastSavedTs = d.ts; saveInfoEl.textContent = `Zuletzt gespeichert: ${formatDT(new Date(d.ts))}`; }
         } catch {
           state.minTotal = DEFAULTS.minTotal; minTotalEl.value = DEFAULTS.minTotal;
           state.maxTotal = DEFAULTS.maxTotal; maxTotalEl.value = DEFAULTS.maxTotal;
         }
       } else {
-        // Erststart
         state.minTotal = DEFAULTS.minTotal; minTotalEl.value = DEFAULTS.minTotal;
         state.maxTotal = DEFAULTS.maxTotal; maxTotalEl.value = DEFAULTS.maxTotal;
       }
+      // Reflect compact state in UI buttons and HUD class
+      hudEl.classList.toggle("compact", state.compact);
       updateUI();
       scheduleAutosave();
     }
@@ -456,22 +565,96 @@
       autosaveToggleEl.value = "on";
       intervalEl.value = 5;
       state.lastSavedTs = null;
+      state.compact = false;
       localStorage.removeItem(LS_KEY);
       saveInfoEl.textContent = "";
+      hudEl.classList.remove("compact");
       updateUI();
       scheduleAutosave();
     }
 
+    // ---------- HUD auto-placement & keyboard ergonomics ----------
+    function candidateRects(width, height) {
+      const right = 16;
+      const topMargin = 12 + (window.visualViewport?.offsetTop || 0) + (parseInt(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-top)')) || 0);
+      const bottomMargin = 16 + (window.visualViewport ? (window.innerHeight - (window.visualViewport.height + window.visualViewport.offsetTop)) : 0) + (parseInt(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-bottom)')) || 0);
+      const topRect = {
+        left: window.innerWidth - right - width,
+        top: topMargin,
+        right: window.innerWidth - right,
+        bottom: topMargin + height
+      };
+      const bottomRect = {
+        left: window.innerWidth - right - width,
+        top: window.innerHeight - bottomMargin - height,
+        right: window.innerWidth - right,
+        bottom: window.innerHeight - bottomMargin
+      };
+      return { topRect, bottomRect };
+    }
+
+    function autoPlaceHUD() {
+      if (!state.hudVisible) return;
+      // Measure HUD size
+      const width = hudEl.offsetWidth;
+      const height = hudEl.offsetHeight;
+
+      // Candidate positions
+      const { topRect, bottomRect } = candidateRects(width, height);
+
+      // Textarea rect
+      const taRect = textEl.getBoundingClientRect();
+
+      // Prefer bottom unless it overlaps significantly; else top
+      const bottomOverlap = rectsOverlap(bottomRect, taRect, 8);
+      const topOverlap = rectsOverlap(topRect, taRect, 8);
+
+      const useTop = bottomOverlap && !topOverlap;
+      const useBottom = !bottomOverlap || (bottomOverlap && topOverlap === true ? false : !useTop);
+
+      if (useTop) {
+        hudEl.style.top = `${topRect.top}px`;
+        hudEl.style.bottom = "auto";
+      } else if (useBottom) {
+        hudEl.style.bottom = `${window.innerHeight - bottomRect.bottom}px`;
+        hudEl.style.top = "auto";
+      } else {
+        // Fallback: choose the position with less overlap (approximate by distance to nearest edge)
+        const distTop = Math.max(0, taRect.top - topRect.bottom);
+        const distBottom = Math.max(0, bottomRect.top - taRect.bottom);
+        if (distTop > distBottom) {
+          hudEl.style.top = `${topRect.top}px`;
+          hudEl.style.bottom = "auto";
+        } else {
+          hudEl.style.bottom = `${window.innerHeight - bottomRect.bottom}px`;
+          hudEl.style.top = "auto";
+        }
+      }
+
+      // If viewport height is very small (keyboard likely open), hide HUD temporarily if overlapping heavily
+      const vv = window.visualViewport;
+      const kbLikely = vv ? (vv.height < window.innerHeight * 0.7) : (window.innerHeight < 500);
+      if (kbLikely && rectsOverlap(hudEl.getBoundingClientRect(), taRect, 0)) {
+        hudEl.style.opacity = "0";
+        hudEl.style.pointerEvents = "none";
+      } else {
+        hudEl.style.opacity = "1";
+        hudEl.style.pointerEvents = "auto";
+      }
+    }
+
     // ---------- Events ----------
     textEl.addEventListener("input", () => { updateUI(); });
+    textEl.addEventListener("scroll", () => {
+      // Sanft ausblenden wenn nahe Unterkante gescrollt
+      const nearBottom = textEl.scrollTop + textEl.clientHeight >= textEl.scrollHeight - 50;
+      hudEl.style.opacity = nearBottom ? "0" : "1";
+      hudEl.style.pointerEvents = nearBottom ? "none" : "auto";
+    });
 
     chaptersEl.addEventListener("input", () => { updateUI(); saveNow(); });
-
     currentEl.addEventListener("input", () => { updateUI(); });
-    currentRangeEl.addEventListener("input", () => {
-      currentEl.value = currentRangeEl.value;
-      updateUI();
-    });
+    currentRangeEl.addEventListener("input", () => { currentEl.value = currentRangeEl.value; updateUI(); });
 
     // Min/Max stabil ohne gegenseitiges "Buggen"
     minTotalEl.addEventListener("input", () => {
@@ -511,23 +694,101 @@
     clearBtn.addEventListener("click", clearAll);
     window.addEventListener("beforeunload", () => saveNow("Auto (beim Schließen)"));
 
-    // Mobile: HUD Toggle
+    // HUD controls
     toggleHudBtn.addEventListener("click", () => {
       state.hudVisible = !state.hudVisible;
       hudEl.style.display = state.hudVisible ? "block" : "none";
       toggleHudBtn.textContent = state.hudVisible ? "HUD ausblenden" : "HUD einblenden";
+      if (state.hudVisible) autoPlaceHUD();
+    });
+    hudHideBtn.addEventListener("click", () => { toggleHudBtn.click(); });
+
+    // Compact toggles (HUD and left panel)
+    function setCompact(v) {
+      state.compact = !!v;
+      hudEl.classList.toggle("compact", state.compact);
+      hudCompactBtn.classList.toggle("toggled", state.compact);
+      toggleCompactBtn.classList.toggle("toggled", state.compact);
+      updateUI();
+      saveNow();
+    }
+    hudCompactBtn.addEventListener("click", () => setCompact(!state.compact));
+    toggleCompactBtn.addEventListener("click", () => setCompact(!state.compact));
+
+    // Onboarding
+    function showOnboarding() { onboardingEl.style.display = "block"; }
+    function hideOnboarding() { onboardingEl.style.display = "none"; }
+    hudHelpBtn.addEventListener("click", showOnboarding);
+    showOnboardingBtn.addEventListener("click", showOnboarding);
+    closeOnboardingBtn.addEventListener("click", () => { hideOnboarding(); localStorage.setItem(LS_FLAG_ONBOARD, "1"); });
+
+    // Close tooltips when clicking outside
+    document.addEventListener("click", () => {
+      hudEl.querySelectorAll(".tip[aria-expanded='true']").forEach(o => o.setAttribute("aria-expanded","false"));
     });
 
-    // Optional: HUD ausblenden, wenn Textarea nahe Unterkante gescrollt ist (mobile Schreibfokus)
-    textEl.addEventListener("scroll", () => {
-      const nearBottom = textEl.scrollTop + textEl.clientHeight >= textEl.scrollHeight - 50;
-      // Sanft ausblenden statt hart verstecken
-      hudEl.style.opacity = nearBottom ? "0" : "1";
-      hudEl.style.pointerEvents = nearBottom ? "none" : "auto";
+    // LocalStorage Export
+    lsExportBtn.addEventListener("click", () => {
+      const data = localStorage.getItem(LS_KEY) || "{}";
+      const blob = new Blob([data], { type: "application/json;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "zeichenzaehler_localstorage_backup.json";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
     });
+
+    // LocalStorage Import (mit Warnung: überschreibt den aktuellen LocalStorage-Eintrag)
+    lsImportBtn.addEventListener("click", () => {
+      if (!confirm("Achtung: Der aktuelle LocalStorage-Eintrag wird überschrieben. Fortfahren?")) return;
+      lsImportFile.click();
+    });
+    lsImportFile.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        // Erlaube: entweder komplette JSON des Eintrags oder bereits stringifyt
+        let parsed;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          // Falls es schon ein String war, der gespeichert wurde:
+          parsed = null;
+        }
+        if (parsed && typeof parsed === "object" && (parsed.chapters || parsed.text !== undefined)) {
+          localStorage.setItem(LS_KEY, JSON.stringify(parsed));
+        } else {
+          // Fallback: Rohtext übernehmen (falls von diesem Tool exportiert)
+          localStorage.setItem(LS_KEY, text);
+        }
+        loadFromStorage();
+        alert("Import erfolgreich. Der vorherige LocalStorage-Eintrag wurde überschrieben.");
+      } catch {
+        alert("Fehler beim Import.");
+      } finally {
+        lsImportFile.value = "";
+      }
+    });
+
+    // VisualViewport adjustments (keyboard ergonomics)
+    if (window.visualViewport) {
+      const vvHandler = () => { autoPlaceHUD(); };
+      visualViewport.addEventListener("resize", vvHandler);
+      visualViewport.addEventListener("scroll", vvHandler);
+    }
+    window.addEventListener("resize", autoPlaceHUD);
+    window.addEventListener("scroll", autoPlaceHUD);
 
     // ---------- Init ----------
     loadFromStorage();
+    // Onboarding einmalig
+    if (!localStorage.getItem(LS_FLAG_ONBOARD)) {
+      showOnboarding();
+    }
+    // Initial placement
+    autoPlaceHUD();
   </script>
 </body>
 </html>
