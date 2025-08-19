@@ -108,6 +108,13 @@
             </div>
           </div>
 
+          <!-- NEU: Rahmendaten / Metadaten -->
+          <div class="row" style="margin-top:10px">
+            <label for="rahmendaten">Rahmendaten / Metadaten</label>
+            <textarea id="rahmendaten" placeholder="Vorwort, Titelinfos, Danksagung … (nicht kapitelgebunden)"></textarea>
+            <div class="meta">Zeichen (ohne Enter): <span id="rahmendatenCount">0</span></div>
+          </div>
+
           <div class="row" style="margin-top:10px">
             <label for="autosaveToggle">Autosave</label>
             <div class="flex">
@@ -205,6 +212,10 @@
     const minTotalEl = el("minTotal");
     const maxTotalEl = el("maxTotal");
 
+    // NEU: Rahmendaten-Referenzen
+    const rahmendatenEl = el("rahmendaten");
+    const rahmendatenCountEl = el("rahmendatenCount");
+
     const autosaveToggleEl = el("autosaveToggle");
     const intervalEl = el("interval");
     const saveInfoEl = el("saveInfo");
@@ -240,13 +251,18 @@
       maxTotal: DEFAULTS.maxTotal,
       lastSavedTs: null,
       hudVisible: true,
-      compact: false
+      compact: false,
+      // NEU
+      rahmendatenCount: 0
     };
     let autosaveTimer = null;
 
     function getEffectiveTotals() {
-      const effMin = Math.min(state.minTotal, state.maxTotal);
-      const effMax = Math.max(state.minTotal, state.maxTotal);
+      const baseMin = Math.min(state.minTotal, state.maxTotal);
+      const baseMax = Math.max(state.minTotal, state.maxTotal);
+      const rd = Math.max(0, state.rahmendatenCount || 0);
+      const effMin = Math.max(0, baseMin - rd);
+      const effMax = Math.max(0, baseMax - rd);
       return { effMin, effMax };
     }
 
@@ -255,6 +271,7 @@
       const current = clamp(parseInt(currentEl.value || "1", 10), 1, chapters);
       const text = textEl.value || "";
       const count = countWithoutNewlines(text);
+      const rahmenCount = Math.max(0, state.rahmendatenCount || 0);
       const { effMin, effMax } = getEffectiveTotals();
 
       const minAllowed = Math.floor((current / chapters) * effMin);
@@ -262,9 +279,19 @@
 
       let deltaTxt = "";
       let deltaClass = "delta-ok";
-      if (count > maxAllowed) { const over = count - maxAllowed; deltaTxt = `Über Maximum: +${over.toLocaleString("de-DE")} Zeichen`; deltaClass = "delta-bad"; }
-      else if (count < minAllowed) { const need = minAllowed - count; deltaTxt = `Unter Minimum: noch ${need.toLocaleString("de-DE")} Zeichen bis Minimum`; deltaClass = "delta-warn"; }
-      else { const remain = maxAllowed - count; deltaTxt = `Verbleibend bis Maximum: ${remain.toLocaleString("de-DE")} Zeichen`; deltaClass = "delta-ok"; }
+      if (count > maxAllowed) {
+        const over = count - maxAllowed;
+        deltaTxt = `Über Maximum: +${over.toLocaleString("de-DE")} Zeichen`;
+        deltaClass = "delta-bad";
+      } else if (count < minAllowed) {
+        const need = minAllowed - count;
+        deltaTxt = `Unter Minimum: noch ${need.toLocaleString("de-DE")} Zeichen bis Minimum`;
+        deltaClass = "delta-warn";
+      } else {
+        const remain = maxAllowed - count;
+        deltaTxt = `Verbleibend bis Maximum: ${remain.toLocaleString("de-DE")} Zeichen`;
+        deltaClass = "delta-ok";
+      }
 
       const pctNow = maxAllowed > 0 ? Math.min(count / maxAllowed, 1) * 100 : 0;
       const bandStartPct = maxAllowed > 0 ? Math.max(0, Math.min(100, (minAllowed / maxAllowed) * 100)) : 0;
@@ -273,12 +300,17 @@
       const tipCount = "Leerzeichen & Tabulatoren zählen. Enter/Zeilenumbrüche zählen nicht.";
       const tipSollKap = `Linear: Bis Kapitel sind k/N vom Gesamtsoll erlaubt.`;
       const tipMini = "Balken = Fortschritt gegen Soll-Max. Grün-Gelb-Band = 'OK'-Bereich ab Soll-Min.";
+      const tipRahmen = "Rahmendaten sind global und werden vom Gesamtzeichenbudget abgezogen (nicht kapitelgebunden).";
 
       if (state.compact) {
         hudContentEl.innerHTML = `
           <div class="line">
             <span class="label">Ist <span class="tip" tabindex="0" role="button" aria-expanded="false" data-tip="${tipCount}">i</span></span>
             <span class="val">${count.toLocaleString("de-DE")}</span>
+          </div>
+          <div class="line">
+            <span class="label">Rahmendaten <span class="tip" tabindex="0" role="button" aria-expanded="false" data-tip="${tipRahmen}">i</span></span>
+            <span class="val">${rahmenCount.toLocaleString("de-DE")}</span>
           </div>
           <div class="mini" title="${tipMini}">
             <div class="band" style="left:${bandStartPct}%; width:${bandWidthPct}%"></div>
@@ -294,6 +326,11 @@
           <div class="line">
             <span class="label">Ist (ohne Enter) <span class="tip" tabindex="0" role="button" aria-expanded="false" data-tip="${tipCount}">i</span></span>
             <span class="val">${count.toLocaleString("de-DE")}</span>
+          </div>
+
+          <div class="line">
+            <span class="label">Rahmendaten <span class="tip" tabindex="0" role="button" aria-expanded="false" data-tip="${tipRahmen}">i</span></span>
+            <span class="val">${rahmenCount.toLocaleString("de-DE")}</span>
           </div>
 
           <div class="line chapline">
@@ -356,6 +393,7 @@
     function saveNow(note = "") {
       const data = {
         text: textEl.value || "",
+        rahmendaten: (rahmendatenEl?.value || ""),
         chapters: parseInt(chaptersEl.value || "1", 10),
         current: parseInt(currentEl.value || "1", 10),
         minTotal: state.minTotal,
@@ -394,6 +432,17 @@
           if (Number.isFinite(d.maxTotal)) { state.maxTotal = Math.max(0, d.maxTotal); maxTotalEl.value = state.maxTotal; }
           else { state.maxTotal = DEFAULTS.maxTotal; maxTotalEl.value = DEFAULTS.maxTotal; }
           if (typeof d.text === "string") textEl.value = d.text;
+
+          // NEU: Rahmendaten laden und zählen
+          if (typeof d.rahmendaten === "string") {
+            if (rahmendatenEl) rahmendatenEl.value = d.rahmendaten;
+            state.rahmendatenCount = countWithoutNewlines(d.rahmendaten);
+            if (rahmendatenCountEl) rahmendatenCountEl.textContent = state.rahmendatenCount.toLocaleString("de-DE");
+          } else {
+            state.rahmendatenCount = 0;
+            if (rahmendatenCountEl) rahmendatenCountEl.textContent = "0";
+          }
+
           if (d.autosave === "on" || d.autosave === "off") autosaveToggleEl.value = d.autosave;
           if (Number.isFinite(d.intervalSec)) intervalEl.value = Math.max(2, d.intervalSec);
           if (typeof d.compact === "boolean") state.compact = d.compact;
@@ -401,10 +450,14 @@
         } catch {
           state.minTotal = DEFAULTS.minTotal; minTotalEl.value = DEFAULTS.minTotal;
           state.maxTotal = DEFAULTS.maxTotal; maxTotalEl.value = DEFAULTS.maxTotal;
+          state.rahmendatenCount = 0;
+          if (rahmendatenCountEl) rahmendatenCountEl.textContent = "0";
         }
       } else {
         state.minTotal = DEFAULTS.minTotal; minTotalEl.value = DEFAULTS.minTotal;
         state.maxTotal = DEFAULTS.maxTotal; maxTotalEl.value = DEFAULTS.maxTotal;
+        state.rahmendatenCount = 0;
+        if (rahmendatenCountEl) rahmendatenCountEl.textContent = "0";
       }
       hudEl.classList.toggle("compact", state.compact);
       updateUI();
@@ -427,6 +480,10 @@
     function clearAll() {
       if (!confirm("Wirklich alles löschen? (Text & Einstellungen)")) return;
       textEl.value = "";
+      if (rahmendatenEl) rahmendatenEl.value = "";
+      state.rahmendatenCount = 0;
+      if (rahmendatenCountEl) rahmendatenCountEl.textContent = "0";
+
       chaptersEl.value = 30;
       currentEl.value = 1;
       state.minTotal = DEFAULTS.minTotal;
@@ -565,6 +622,11 @@
       hudEl.style.pointerEvents = nearBottom ? "none" : "auto";
     });
 
+    // NEU: Listener für Rahmendaten
+    if (rahmendatenEl) {
+      rahmendatenEl.addEventListener("input", () => updateRahmendatenCount());
+    }
+
     chaptersEl.addEventListener("input", () => { updateUI(); saveNow(); });
     currentEl.addEventListener("input", () => { updateUI(); saveNow(); });
     prevChapterBtn.addEventListener("click", () => stepChapter(-1));
@@ -609,11 +671,11 @@
     }
     toggleHudBtn.addEventListener("click", () => setHudVisible(!state.hudVisible));
     hudHideBtn.addEventListener("click", () => setHudVisible(false));
-//    document.addEventListener("keydown", (e) => {
-//      if (e.key.toLowerCase() === "h" && !e.metaKey && !e.ctrlKey && !e.altKey) {
-//        e.preventDefault(); setHudVisible(!state.hudVisible);
-//      }
-//   });
+    // document.addEventListener("keydown", (e) => {
+    //   if (e.key.toLowerCase() === "h" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    //     e.preventDefault(); setHudVisible(!state.hudVisible);
+    //   }
+    // });
 
     function setCompact(v) {
       state.compact = !!v;
@@ -681,6 +743,17 @@
     if (window.visualViewport) {
       visualViewport.addEventListener("resize", autoPlaceHUD);
       visualViewport.addEventListener("scroll", autoPlaceHUD);
+    }
+
+    // NEU: Funktion zum Zählen der Rahmendaten
+    function updateRahmendatenCount(silent = false) {
+      const val = rahmendatenEl?.value || "";
+      state.rahmendatenCount = countWithoutNewlines(val);
+      if (rahmendatenCountEl) {
+        rahmendatenCountEl.textContent = state.rahmendatenCount.toLocaleString("de-DE");
+      }
+      updateUI();
+      if (!silent) saveNow();
     }
 
     loadFromStorage();
