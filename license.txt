@@ -1,0 +1,9 @@
+MIT License
+
+Copyright (c) 2025 Jakob Block
+
+Hiermit wird unentgeltlich jeder Person, die eine Kopie dieser Software und der zugehörigen Dokumentationsdateien (die "Software") erhält, die Erlaubnis erteilt, uneingeschränkt mit der Software zu arbeiten, einschließlich und ohne Einschränkung des Rechts, sie zu verwenden, zu kopieren, zu verändern, zusammenzuführen, zu veröffentlichen, zu verbreiten, unterzulizenzieren und/oder zu verkaufen, und Personen, denen diese Software bereitgestellt wird, dies zu gestatten, unter den folgenden Bedingungen:
+
+Der obige Urheberrechtshinweis und dieser Genehmigungshinweis müssen in allen Kopien oder Teilkopien der Software enthalten sein.
+
+DIE SOFTWARE WIRD OHNE JEGLICHE AUSDRÜCKLICHE ODER STILLSCHWEIGENDE GARANTIE BEREITGESTELLT, EINSCHLIESSLICH DER GARANTIEN DER MARKTGÄNGIGKEIT, DER TAUGLICHKEIT FÜR EINEN BESTIMMTEN ZWECK UND DER NICHTVERLETZUNG. IN KEINEM FALL SIND DIE AUTOREN ODER COPYRIGHTINHABER FÜR JEGLICHEN SCHADEN ODER SONSTIGE ANSPRÜCHE HAFTBAR ZU MACHEN, OB AUS VERTRAG, UNERLAUBTER HANDLUNG ODER ANDERWEITIG, DER AUS DER SOFTWARE ODER DER VERWENDUNG ODER ANDEREN GESCHÄFTEN MIT DER SOFTWARE ENTSTEHT.
