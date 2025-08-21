@@ -44,10 +44,16 @@
     background: var(--bg);
   }
   
-  textarea {
-    min-height: 60vh;
-    resize: vertical;
+
+
+  #rahmendaten {
+  min-height: 7vh;
   }
+
+  
+  #text {
+  min-height: 70vh;
+}
   
   .grid {
     display: grid;
@@ -312,3 +318,39 @@
     opacity: 0.9;
   }
   
+  /* Container für Nummern + Text nebeneinander */
+.editor {
+  display: flex;
+  position: relative;
+  font-family: monospace;
+}
+
+/* Spalte mit den Zeilennummern */
+.line-numbers {
+  counter-reset: linenumber;
+  background: #f7f7f7;
+  color: #999;
+  text-align: right;
+  padding: 4px 6px;
+  line-height: 1.5;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* Jede Zeile in .line-numbers bekommt ihren Counter */
+.line-numbers div {
+  counter-increment: linenumber;
+}
+.line-numbers div::before {
+  content: counter(linenumber);
+  display: block;
+}
+
+/* Textarea nimmt restlichen Platz ein und scrollt synchron */
+.editor textarea {
+  flex: 1;
+  padding-left: 8px;     /* Luft zur Nummernspalte */
+  line-height: 1.5;
+  font-family: inherit;  /* monospace von .editor übernehmen */
+  resize: vertical;
+}

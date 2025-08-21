@@ -10,6 +10,7 @@
   <h1>Zeichenzähler (ohne Enter) mit linearem Kapitelziel</h1>
 
   <div class="layout">
+    <!-- linke Spalte: Kapitel- & Speichereinstellungen -->
     <div class="left">
       <div class="grid">
         <div class="card">
@@ -34,12 +35,6 @@
             <div class="meta">
               Linear: Bis Kapitel k sind k/N des Gesamt-Min/Max erlaubt.
             </div>
-          </div>
-
-          <div class="row" style="margin-top:10px">
-            <label for="rahmendaten">Rahmendaten / Metadaten</label>
-            <textarea id="rahmendaten" placeholder="Autor, Absicht, Zielgruppe…"></textarea>
-            <div class="meta">Zeichen (ohne Enter): <span id="rahmendatenCount">0</span></div>
           </div>
 
           <div class="row" style="margin-top:10px">
@@ -82,12 +77,24 @@
       </div>
     </div>
 
+    <!-- rechte Spalte: Metadaten & Buchtext -->
     <div class="right">
-      <label for="text">Buch-Text</label>
-      <textarea id="text" placeholder="Füge hier deinen Text ein oder schreibe direkt los…"></textarea>
+      <!-- neu oben: Metadaten -->
+      <div class="row" style="margin-bottom:10px">
+        <label for="rahmendaten">Rahmendaten / Metadaten (Werte unabhängig vom aktuellen Kapitelsoll)</label>
+        <textarea id="rahmendaten" placeholder="Autor, Absicht, Zielgruppe…"></textarea>
+        <div class="meta">Zeichen (ohne Enter): <span id="rahmendatenCount">0</span></div>
+      </div>
+
+      <label for="text">Buch-Text (Eingaben abhängig vom aktuellen Kapitelsoll)</label>
+      <div class="editor">
+      <div class="line-numbers"></div>
+       <textarea id="text" placeholder="Füge hier deinen Text ein…"></textarea>
+      </div>
     </div>
   </div>
 
+  <!-- HUD, Tour & Script bleiben unverändert -->
   <div id="hud" class="hud" aria-live="polite">
     <div class="head">
       <div class="title">HUD</div>
@@ -100,7 +107,9 @@
     <div class="rows" id="hudContent"></div>
   </div>
 
-  <button id="toggleHud" class="btn secondary" aria-controls="hud" aria-expanded="true">HUD ausblenden</button>
+  <button id="toggleHud" class="btn secondary" aria-controls="hud" aria-expanded="true">
+    HUD ausblenden
+  </button>
 
   <div id="tour" class="tour" aria-live="polite" aria-modal="true">
     <div id="tourSpot" class="spot"></div>

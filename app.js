@@ -77,55 +77,47 @@ function getEffectiveTotals() {
   return { effMin, effMax };
 }
 
-// HUD-Renderer
 function renderHUDContent() {
   const chapters = clamp(+chaptersEl.value || 1, 1, 1e6);
   const current  = clamp(+currentEl.value  || 1, 1, chapters);
-  const text     = textEl.value || '';
-  const count    = countWithoutNewlines(text);
-  const { effMin, effMax } = getEffectiveTotals();
+  
+  const rahmenCount = countWithoutNewlines(rahmendatenEl.value);
+  const textCount   = countWithoutNewlines(textEl.value);
+  const totalCount  = rahmenCount + textCount;
 
-  const minAllowed = Math.floor((current / chapters) * effMin);
-  const maxAllowed = Math.floor((current / chapters) * effMax);
+  const baseMin = Math.min(state.minTotal, state.maxTotal);
+  const baseMax = Math.max(state.minTotal, state.maxTotal);
+  const minAllowed = Math.floor((current / chapters) * baseMin);
+  const maxAllowed = Math.floor((current / chapters) * baseMax);
 
-  // Delta-Text
   let deltaTxt, deltaClass;
-  if (count > maxAllowed) {
-    deltaTxt   = `Über Maximum: +${(count - maxAllowed).toLocaleString('de-DE')} Zeichen`;
+  if (totalCount > maxAllowed) {
+    deltaTxt   = `Über Maximum: +${(totalCount - maxAllowed).toLocaleString('de-DE')} Zeichen`;
     deltaClass = 'delta-bad';
-  } else if (count < minAllowed) {
-    deltaTxt   = `Unter Minimum: noch ${(minAllowed - count).toLocaleString('de-DE')} Zeichen`;
+  } else if (totalCount < minAllowed) {
+    deltaTxt   = `Unter Minimum: noch ${(minAllowed - totalCount).toLocaleString('de-DE')} Zeichen`;
     deltaClass = 'delta-warn';
   } else {
-    deltaTxt   = `Verbleibend bis Maximum: ${(maxAllowed - count).toLocaleString('de-DE')} Zeichen`;
+    deltaTxt   = `Verbleibend bis Maximum: ${(maxAllowed - totalCount).toLocaleString('de-DE')} Zeichen`;
     deltaClass = 'delta-ok';
   }
 
-  // Prozente für Balken
-  const pctNow     = maxAllowed > 0 ? Math.min(count / maxAllowed, 1) * 100 : 0;
+  const pctNow     = maxAllowed > 0 ? Math.min(totalCount / maxAllowed, 1) * 100 : 0;
   const bandStart  = maxAllowed > 0 ? (minAllowed / maxAllowed) * 100 : 0;
   const bandWidth  = maxAllowed > 0 ? 100 - bandStart : 0;
 
-  // Tooltips
   const tipCount   = 'Leerzeichen & Tabulatoren zählen. Enter nicht.';
-  const tipSoll    = 'Linear: k/N vom Gesamtsoll bis Kapitel k.';
-  const tipRahmen  = 'Rahmendaten sind global und werden abgezogen.';
   const tipMini    = 'Balken = Fortschritt gegen Max. Grün-Gelb-Band = OK-Bereich.';
 
-  // Aufbauen
   if (state.compact) {
     hudContentEl.innerHTML = `
       <div class="line">
-        <span class="label">Ist <span class="tip" data-tip="${tipCount}">i</span></span>
-        <span class="val">${count.toLocaleString('de-DE')}</span>
-      </div>
-      <div class="line">
-        <span class="label">Rahmendaten <span class="tip" data-tip="${tipRahmen}">i</span></span>
-        <span class="val">${state.rahmenCount.toLocaleString('de-DE')}</span>
+        <span class="label">Istzeichen vs. Sollbereich <span class="tip" data-tip="${tipCount}"></span></span>
+        <span class="val">${totalCount.toLocaleString('de-DE')} / (${minAllowed.toLocaleString('de-DE')}–${maxAllowed.toLocaleString('de-DE')})</span>
       </div>
       <div class="mini" title="${tipMini}">
         <div class="band" style="left:${bandStart}%; width:${bandWidth}%"></div>
-        <div class="b ${count>maxAllowed?'over':''}" style="width:${pctNow}%"></div>
+        <div class="b ${totalCount>maxAllowed?'over':''}" style="width:${pctNow}%"></div>
       </div>
       <div class="line">
         <span class="label">Delta</span>
@@ -135,12 +127,8 @@ function renderHUDContent() {
   } else {
     hudContentEl.innerHTML = `
       <div class="line">
-        <span class="label">Ist (ohne Enter) <span class="tip" data-tip="${tipCount}">i</span></span>
-        <span class="val">${count.toLocaleString('de-DE')}</span>
-      </div>
-      <div class="line">
-        <span class="label">Rahmendaten <span class="tip" data-tip="${tipRahmen}">i</span></span>
-        <span class="val">${state.rahmenCount.toLocaleString('de-DE')}</span>
+        <span class="label">Istzeichen vs. Sollbereich <span class="tip" data-tip="${tipCount}"></span></span>
+        <span class="val">${totalCount.toLocaleString('de-DE')} / (${minAllowed.toLocaleString('de-DE')}–${maxAllowed.toLocaleString('de-DE')})</span>
       </div>
       <div class="line chapline">
         <span class="label">Kapitel</span>
@@ -150,13 +138,9 @@ function renderHUDContent() {
           <button id="hudNext" class="mini-btn">›</button>
         </span>
       </div>
-      <div class="line soll">
-        <span class="label">Soll bis Kapitel <span class="tip" data-tip="${tipSoll}">i</span></span>
-        <span class="val">${minAllowed.toLocaleString('de-DE')} – ${maxAllowed.toLocaleString('de-DE')}</span>
-      </div>
       <div class="mini" title="${tipMini}">
         <div class="band" style="left:${bandStart}%; width:${bandWidth}%"></div>
-        <div class="b ${count>maxAllowed?'over':''}" style="width:${pctNow}%"></div>
+        <div class="b ${totalCount>maxAllowed?'over':''}" style="width:${pctNow}%"></div>
       </div>
       <div class="line">
         <span class="label">Delta</span>
@@ -165,11 +149,9 @@ function renderHUDContent() {
     `;
   }
 
-  // Kapitel-Buttons im HUD
   $('#hudPrev')?.addEventListener('click', () => stepChapter(-1));
   $('#hudNext')?.addEventListener('click', () => stepChapter(+1));
 
-  // Tooltip Toggle per Delegation
   hudEl.querySelectorAll('.tip').forEach(t => {
     t.addEventListener('click', e => {
       e.stopPropagation();
@@ -179,6 +161,7 @@ function renderHUDContent() {
     });
   });
 }
+
 
 // UI-Update
 function updateUI() {
@@ -527,3 +510,31 @@ loadFromStorage();
 setHudVisible(true);
 autoPlaceHUD();
 if (!localStorage.getItem(TOUR_FLAG)) startTour(true);
+
+// === Zeilennummern für #text ===
+(function(){
+  const textEl = document.getElementById('text');
+  const lnEl   = document.querySelector('.line-numbers');
+
+  function updateLineNumbers(){
+    const lines = textEl.value.split('\n').length || 1;
+    // neu befüllen
+    lnEl.innerHTML = '';
+    for(let i=0; i<lines; i++){
+      const div = document.createElement('div');
+      // div.textContent = i+1;       // optional, CSS Counter übernimmt das
+      lnEl.appendChild(div);
+    }
+  }
+
+  // bei Eingabe und Einfügen
+  textEl.addEventListener('input', updateLineNumbers);
+  // beim Scrollen die Nummern synchron mitziehen
+  textEl.addEventListener('scroll', () => {
+    lnEl.scrollTop = textEl.scrollTop;
+  });
+
+  // initial einmal aufbauen
+  updateLineNumbers();
+})();
+
