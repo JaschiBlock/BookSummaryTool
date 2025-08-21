@@ -124,7 +124,7 @@ function renderHUDContent() {
         <span class="${deltaClass}">${deltaTxt}</span>
       </div>
     `;
-  } else {
+    } else {
     hudContentEl.innerHTML = `
       <div class="line">
         <span class="label">Istzeichen vs. Sollbereich <span class="tip" data-tip="${tipCount}"></span></span>
@@ -146,8 +146,15 @@ function renderHUDContent() {
         <span class="label">Delta</span>
         <span class="${deltaClass}">${deltaTxt}</span>
       </div>
+      <div class="line" id="enterCounterRow">
+        <span class="label">Enter‑Zähler im Feld Buch-Text</span>
+        <span class="val" id="enterCount">${
+          (textEl.value.match(/\n/g) || []).length
+        }</span>
+      </div>
     `;
   }
+
 
   $('#hudPrev')?.addEventListener('click', () => stepChapter(-1));
   $('#hudNext')?.addEventListener('click', () => stepChapter(+1));
