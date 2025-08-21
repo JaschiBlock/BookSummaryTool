@@ -46,6 +46,7 @@
   
 
 
+
   #rahmendaten {
   min-height: 7vh;
   }
@@ -53,7 +54,7 @@
   
   #text {
   min-height: 70vh;
-}
+  }
   
   .grid {
     display: grid;
