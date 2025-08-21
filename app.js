@@ -120,7 +120,7 @@ function renderHUDContent() {
         <div class="b ${totalCount>maxAllowed?'over':''}" style="width:${pctNow}%"></div>
       </div>
       <div class="line">
-        <span class="label">Delta</span>
+        <span class="label">Sollzeichen</span>
         <span class="${deltaClass}">${deltaTxt}</span>
       </div>
     `;
