@@ -147,6 +147,7 @@
   }
   
   .hud {
+    --bg: rgba(255, 255, 255, 0.75);
     position: fixed;
     right: 16px;
     z-index: 9999;
@@ -354,4 +355,23 @@
   line-height: 1.5;
   font-family: inherit;  /* monospace von .editor übernehmen */
   resize: vertical;
+}
+
+/* 1. Container: Flex mit automatischem Umbruch */
+.container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;               /* Abstand zwischen den Feldern */
+}
+
+/* 2. Textfelder: Gleiche Flex-Basis + Scrollen bei Überlauf */
+/* gilt nun für Buchtext UND Metatext */
+.text-field,
+.meta-text {
+  flex: 1 1 300px;                    /* wächst gleich, bricht bei <300px um */
+  min-width: 250px;                   /* minimale Breite */
+  max-height: calc(100vh - 4rem);     /* passt sich Viewport-Höhe an */
+  overflow-y: auto;                   /* vertikal scrollbar bei Überlauf */
+  box-sizing: border-box;
+  padding: 1rem;
 }
