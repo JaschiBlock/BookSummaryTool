@@ -80,16 +80,20 @@ function getEffectiveTotals() {
 function renderHUDContent() {
   const chapters = clamp(+chaptersEl.value || 1, 1, 1e6);
   const current  = clamp(+currentEl.value  || 1, 1, chapters);
-  
-  const rahmenCount = countWithoutNewlines(rahmendatenEl.value);
+
+  // Zählungen
   const textCount   = countWithoutNewlines(textEl.value);
-  const totalCount  = rahmenCount + textCount;
+  const totalCount  = textCount;
 
-  const baseMin = Math.min(state.minTotal, state.maxTotal);
-  const baseMax = Math.max(state.minTotal, state.maxTotal);
-  const minAllowed = Math.floor((current / chapters) * baseMin);
-  const maxAllowed = Math.floor((current / chapters) * baseMax);
+  // Effektive Gesamtziele (Rahmendaten werden abgezogen)
+  // nutzt state.rahmenCount intern, der beim Input auf #rahmendaten gepflegt wird
+  const { effMin, effMax } = getEffectiveTotals();
 
+  // Linear bis Kapitel k: k/N von den effektiven Gesamtzielen
+  const minAllowed = Math.floor((current / chapters) * effMin);
+  const maxAllowed = Math.floor((current / chapters) * effMax);
+
+  // Delta-Text und -Klasse
   let deltaTxt, deltaClass;
   if (totalCount > maxAllowed) {
     deltaTxt   = `Über Maximum: +${(totalCount - maxAllowed).toLocaleString('de-DE')} Zeichen`;
@@ -102,14 +106,17 @@ function renderHUDContent() {
     deltaClass = 'delta-ok';
   }
 
+  // Balken-Geometrie
   const pctNow     = maxAllowed > 0 ? Math.min(totalCount / maxAllowed, 1) * 100 : 0;
   const bandStart  = maxAllowed > 0 ? (minAllowed / maxAllowed) * 100 : 0;
   const bandWidth  = maxAllowed > 0 ? 100 - bandStart : 0;
 
+  // Tooltips
   const tipCount   = 'Leerzeichen & Tabulatoren zählen. Enter nicht.';
   const tipMini    = 'Balken = Fortschritt gegen Max. Grün-Gelb-Band = OK-Bereich.';
 
   if (state.compact) {
+    // Kompaktmodus: ohne Kapitel-Pfeile und ohne Enter-Zähler
     hudContentEl.innerHTML = `
       <div class="line">
         <span class="label">Istzeichen vs. Sollbereich <span class="tip" data-tip="${tipCount}"></span></span>
@@ -124,7 +131,10 @@ function renderHUDContent() {
         <span class="${deltaClass}">${deltaTxt}</span>
       </div>
     `;
-    } else {
+  } else {
+    // Nicht-kompakt: mit Kapitel-Pfeilen und Enter-Zähler (nur Buchtext)
+    const enterCount = (textEl.value.match(/\n/g) || []).length;
+
     hudContentEl.innerHTML = `
       <div class="line">
         <span class="label">Istzeichen vs. Sollbereich <span class="tip" data-tip="${tipCount}"></span></span>
@@ -147,18 +157,17 @@ function renderHUDContent() {
         <span class="${deltaClass}">${deltaTxt}</span>
       </div>
       <div class="line" id="enterCounterRow">
-        <span class="label">Enter‑Zähler im Feld Buch-Text</span>
-        <span class="val" id="enterCount">${
-          (textEl.value.match(/\n/g) || []).length
-        }</span>
+        <span class="label">Enter‑Zähler</span>
+        <span class="val" id="enterCount">${enterCount}</span>
       </div>
     `;
   }
 
-
+  // Events für HUD-Pfeile
   $('#hudPrev')?.addEventListener('click', () => stepChapter(-1));
   $('#hudNext')?.addEventListener('click', () => stepChapter(+1));
 
+  // Tooltip-Toggling
   hudEl.querySelectorAll('.tip').forEach(t => {
     t.addEventListener('click', e => {
       e.stopPropagation();
@@ -168,6 +177,7 @@ function renderHUDContent() {
     });
   });
 }
+
 
 
 // UI-Update
