@@ -327,26 +327,6 @@
   font-family: monospace;
 }
 
-/* Spalte mit den Zeilennummern */
-.line-numbers {
-  counter-reset: linenumber;
-  background: #f7f7f7;
-  color: #999;
-  text-align: right;
-  padding: 4px 6px;
-  line-height: 1.5;
-  user-select: none;
-  overflow: hidden;
-}
-
-/* Jede Zeile in .line-numbers bekommt ihren Counter */
-.line-numbers div {
-  counter-increment: linenumber;
-}
-.line-numbers div::before {
-  content: counter(linenumber);
-  display: block;
-}
 
 /* Textarea nimmt restlichen Platz ein und scrollt synchron */
 .editor textarea {
@@ -375,3 +355,8 @@
   box-sizing: border-box;
   padding: 1rem;
 }
+
+#rahmendaten + .meta {
+  display: none;
+}
+

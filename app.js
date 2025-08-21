@@ -510,31 +510,3 @@ loadFromStorage();
 setHudVisible(true);
 autoPlaceHUD();
 if (!localStorage.getItem(TOUR_FLAG)) startTour(true);
-
-// === Zeilennummern für #text ===
-(function(){
-  const textEl = document.getElementById('text');
-  const lnEl   = document.querySelector('.line-numbers');
-
-  function updateLineNumbers(){
-    const lines = textEl.value.split('\n').length || 1;
-    // neu befüllen
-    lnEl.innerHTML = '';
-    for(let i=0; i<lines; i++){
-      const div = document.createElement('div');
-      // div.textContent = i+1;       // optional, CSS Counter übernimmt das
-      lnEl.appendChild(div);
-    }
-  }
-
-  // bei Eingabe und Einfügen
-  textEl.addEventListener('input', updateLineNumbers);
-  // beim Scrollen die Nummern synchron mitziehen
-  textEl.addEventListener('scroll', () => {
-    lnEl.scrollTop = textEl.scrollTop;
-  });
-
-  // initial einmal aufbauen
-  updateLineNumbers();
-})();
-
