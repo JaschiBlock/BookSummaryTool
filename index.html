@@ -33,7 +33,7 @@
             <input id="maxTotal" type="number" min="0" step="1" value="1500" />
 
             <div class="meta">
-              Linear: Bis Kapitel k sind k/N des Gesamt-Min/Max erlaubt.
+              <!-- Linear: Bis Kapitel k sind k/N des Gesamt-Min/Max erlaubt. -->
             </div>
           </div>
 
@@ -48,20 +48,20 @@
               <input id="interval" type="number" min="2" step="1" value="5" style="max-width:120px" />
             </div>
             <div class="flex" style="margin-top:8px">
-              <button id="save" class="btn">Jetzt speichern</button>
-              <button id="export" class="btn secondary">Export .txt</button>
-              <input id="importFile" type="file" accept=".txt,.md,.rtf,.csv,.json" style="display:none" />
-              <button id="importBtn" class="btn secondary">Import .txt/.md</button>
-              <button id="clear" class="btn secondary">Alles löschen</button>
+              <button id="save" class="btn secondary">Jetzt speichern im lokal Storage (nur im Browser)</button>
+              <!-- <button id="export" class="btn secondary">Export .txt</button> 
+              <input id="importFile" type="file" accept=".txt,.md,.rtf,.csv,.json" style="display:none" /> 
+              <button id="importBtn" class="btn secondary">Import .txt/.md</button> -->
+              <button id="clear" class="btn secondary">lokalStorage löschen</button>
             </div>
 
             <div class="flex" style="margin-top:8px">
-              <button id="lsExport" class="btn secondary">LocalStorage sichern</button>
-              <button id="lsImportBtn" class="btn secondary">LocalStorage laden</button>
+              <button id="lsExport" class="btn">LocalStorage exportieren</button>
+              <button id="lsImportBtn" class="btn secondary">LocalStorage import</button>
               <input id="lsImportFile" type="file" accept="application/json" style="display:none" />
             </div>
             <div class="warn-note">
-              ⚠ Achtung: Der Stand liegt nur lokal im Browser. Er kann verloren gehen …
+              ⚠ Achtung: Der Stand liegt nur lokal im Browser. Er kann verloren gehen. Bitte um Daten regelmäßig sicher z.B. über "LocalStorage exportieren"!
             </div>
 
             <div id="saveInfo" class="meta"></div>
@@ -69,8 +69,8 @@
 
           <div class="row" style="margin-top:10px">
             <div class="flex">
-              <button id="toggleCompact" class="btn ghost">Kompaktmodus</button>
-              <button id="startTour" class="btn ghost">Geführte Tour starten</button>
+              <button id="toggleCompact" class="btn ghost">Kompaktmodus des HUD (flexibles Fenster rechts)</button>
+              <!-- <button id="startTour" class="btn ghost">Geführte Tour starten</button> -->
             </div>
           </div>
         </div>
