@@ -356,7 +356,10 @@
   padding: 1rem;
 }
 
-#rahmendaten + .meta {
+
+#rahmendaten + .meta,
+#export,
+#importFile,
+#importBtn {
   display: none;
 }
-
