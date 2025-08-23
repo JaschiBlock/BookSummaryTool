@@ -526,4 +526,4 @@ window.addEventListener('beforeunload', () => saveNow('Auto (beim Schließen)'))
 loadFromStorage();
 setHudVisible(true);
 autoPlaceHUD();
-if (!localStorage.getItem(TOUR_FLAG)) startTour(true);
+//if (!localStorage.getItem(TOUR_FLAG)) startTour(true);

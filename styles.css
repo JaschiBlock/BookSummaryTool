@@ -360,6 +360,8 @@
 #rahmendaten + .meta,
 #export,
 #importFile,
-#importBtn {
+#importBtn.actions,
+#startTour,
+#hudHelpBtn {
   display: none;
 }
